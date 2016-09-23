@@ -3,4 +3,4 @@
 
 ![画面キャプチャー](https://github.com/kenjinote/RunPython/wiki/preview.png "画面キャプチャー")
 
-※pythonw.exeを内包しています。ライセンスについてはLICENSE.TXTをご参照ください。
+※pythonw.exe(32bit, ver3.5.2)を内包しています。ライセンスについてはLICENSE.TXTをご参照ください。
