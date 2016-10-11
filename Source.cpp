@@ -3,6 +3,7 @@
 #pragma comment(lib, "comctl32")
 
 #include <windows.h>
+#include <richedit.h>
 #include <commctrl.h>
 #include <shlwapi.h>
 #include <stdio.h>
@@ -194,6 +195,7 @@ DWORD WINAPI ThreadExpandModule(LPVOID p)
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+	static HMODULE hModule;
 	static HWND hInputEdit, hOutputEdit;
 	static TCHAR szTempDirectoryPath[MAX_PATH];
 	static HFONT hFont;
@@ -203,6 +205,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	switch (msg)
 	{
 	case WM_CREATE:
+		hModule = LoadLibrary(TEXT("Msftedit.dll"));
 		InitCommonControls();
 		if (!CreateTempDirectory(szTempDirectoryPath)) return -1;
 		pData = (DATA*)GlobalAlloc(0, sizeof DATA);
@@ -212,8 +215,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		lstrcpy(pData->szTempPath, szTempDirectoryPath);
 		hThread = CreateThread(0, 0, ThreadExpandModule, (LPVOID)pData, 0, &dwParam);
 		hFont = CreateFont(26, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, TEXT("Consolas"));
-		hInputEdit = CreateWindow(TEXT("EDIT"), TEXT("print(\"hello\")"), WS_CHILD | WS_VISIBLE | WS_HSCROLL | WS_VSCROLL | WS_TABSTOP | ES_MULTILINE | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_WANTRETURN, 0, 0, 0, 0, hWnd, 0, ((LPCREATESTRUCT)lParam)->hInstance, 0);
-		SendMessage(hInputEdit, EM_LIMITTEXT, 0, 0);
+		hInputEdit = CreateWindow(TEXT("RichEdit50W"), TEXT("print(\"hello\")"), WS_CHILD | WS_VISIBLE | WS_HSCROLL | WS_VSCROLL | WS_TABSTOP | ES_MULTILINE | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_WANTRETURN, 0, 0, 0, 0, hWnd, 0, ((LPCREATESTRUCT)lParam)->hInstance, 0);
+		SendMessage(hInputEdit, EM_LIMITTEXT, -1, 0);
 		{
 			const int tab = 16;
 			SendMessage(hInputEdit, EM_SETTABSTOPS, 1, (LPARAM)&tab);
@@ -261,9 +264,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				GlobalFree(lpszCode);
 			}
 			break;
-		case ID_ALLSELECT:
-			SendMessage(GetFocus(), EM_SETSEL, 0, -1);
-			break;
 		}
 		break;
 	case WM_CLOSE:
@@ -281,6 +281,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		pData = 0;
 		SetWindowLongPtr(hInputEdit, GWLP_WNDPROC, (LONG_PTR)lpfnOldClassProc);
 		DeleteDirectory(szTempDirectoryPath);
+		DestroyWindow(hInputEdit);
+		FreeLibrary(hModule);
 		PostQuitMessage(0);
 		break;
 	default:
@@ -322,7 +324,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPreInst, LPSTR pCmdLine, int 
 	UpdateWindow(hWnd);
 	ACCEL Accel[] = {
 		{ FVIRTKEY, VK_F5, ID_BUILD },
-		{ FVIRTKEY | FCONTROL, 'A', ID_ALLSELECT },
 	};
 	const HACCEL hAccel = CreateAcceleratorTable(Accel, sizeof(Accel) / sizeof(ACCEL));
 	while (GetMessage(&msg, 0, 0, 0))
