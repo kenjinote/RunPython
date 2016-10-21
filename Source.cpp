@@ -1,8 +1,11 @@
-﻿#pragma comment(lib, "shlwapi")
+﻿#pragma comment(linker,"\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+
+#pragma comment(lib, "shlwapi")
 #pragma comment(lib, "winmm")
 #pragma comment(lib, "comctl32")
 
 #include <windows.h>
+#include <windowsx.h>
 #include <richedit.h>
 #include <commctrl.h>
 #include <shlwapi.h>
@@ -12,9 +15,34 @@
 #include "resource.h"
 
 #define WM_EXITTHREAD WM_APP
+#define SPLITTER_WIDTH 4
 
 TCHAR szClassName[] = TEXT("RUNPYTHON");
 WNDPROC lpfnOldClassProc;
+
+VOID SplitterDraw(HWND hWnd, INT x)
+{
+	const HDC hdc = GetDC(0);
+	if (hdc)
+	{
+		const HBRUSH hBrush = CreateSolidBrush(RGB(0, 0, 0));
+		if (hBrush)
+		{
+			RECT rect;
+			GetClientRect(hWnd, &rect);
+			const RECT rectSplit = { x - SPLITTER_WIDTH / 2, 8, x + SPLITTER_WIDTH / 2, rect.bottom };
+			ClientToScreen(hWnd, (LPPOINT)&rectSplit.left);
+			ClientToScreen(hWnd, (LPPOINT)&rectSplit.right);
+			SetROP2(hdc, R2_NOT);
+			SetBkMode(hdc, TRANSPARENT);
+			const HGDIOBJ hOldBrush = SelectObject(hdc, hBrush);
+			Rectangle(hdc, rectSplit.left, rectSplit.top, rectSplit.right, rectSplit.bottom);
+			SelectObject(hdc, hOldBrush);
+			DeleteObject(hBrush);
+		}
+		ReleaseDC(0, hdc);
+	}
+}
 
 BOOL DeleteDirectory(LPCTSTR lpPathName)
 {
@@ -202,6 +230,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	static DATA* pData;
 	static HANDLE hThread;
 	static DWORD dwParam;
+	static double percent = 0.5;
+	static int oldposx;
 	switch (msg)
 	{
 	case WM_CREATE:
@@ -211,18 +241,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		pData = (DATA*)GlobalAlloc(0, sizeof DATA);
 		pData->hWnd = hWnd;
 		pData->bAbort = 0;
-		pData->hProgress = CreateWindowEx(0, PROGRESS_CLASS, 0, WS_VISIBLE | WS_CHILD | PBS_SMOOTH, 0, 0, 0, 0, hWnd, 0, ((LPCREATESTRUCT)lParam)->hInstance, 0);
+		pData->hProgress = CreateWindow(PROGRESS_CLASS, 0, WS_VISIBLE | WS_CHILD | PBS_SMOOTH, 0, 0, 0, 0, hWnd, 0, ((LPCREATESTRUCT)lParam)->hInstance, 0);
 		lstrcpy(pData->szTempPath, szTempDirectoryPath);
 		hThread = CreateThread(0, 0, ThreadExpandModule, (LPVOID)pData, 0, &dwParam);
 		hFont = CreateFont(26, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, TEXT("Consolas"));
-		hInputEdit = CreateWindow(TEXT("RichEdit50W"), TEXT("print(\"hello\")"), WS_CHILD | WS_VISIBLE | WS_HSCROLL | WS_VSCROLL | WS_TABSTOP | ES_MULTILINE | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_WANTRETURN, 0, 0, 0, 0, hWnd, 0, ((LPCREATESTRUCT)lParam)->hInstance, 0);
+		hInputEdit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("RichEdit50W"), TEXT("print(\"hello\")"), WS_CHILD | WS_VISIBLE | WS_HSCROLL | WS_VSCROLL | WS_TABSTOP | ES_MULTILINE | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_WANTRETURN, 0, 0, 0, 0, hWnd, 0, ((LPCREATESTRUCT)lParam)->hInstance, 0);
 		SendMessage(hInputEdit, EM_LIMITTEXT, -1, 0);
 		{
 			const int tab = 16;
 			SendMessage(hInputEdit, EM_SETTABSTOPS, 1, (LPARAM)&tab);
 		}
 		lpfnOldClassProc = (WNDPROC)SetWindowLongPtr(hInputEdit, GWLP_WNDPROC, (LONG_PTR)MultiLineEditWndProc);
-		hOutputEdit = CreateWindow(TEXT("EDIT"), TEXT("Python の実行環境を構築しています..."), WS_CHILD | WS_VISIBLE | WS_HSCROLL | WS_VSCROLL | WS_TABSTOP | ES_MULTILINE | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_READONLY, 0, 0, 0, 0, hWnd, 0, ((LPCREATESTRUCT)lParam)->hInstance, 0);
+		hOutputEdit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT("Python の実行環境を構築しています..."), WS_CHILD | WS_VISIBLE | WS_HSCROLL | WS_VSCROLL | WS_TABSTOP | ES_MULTILINE | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_READONLY, 0, 0, 0, 0, hWnd, 0, ((LPCREATESTRUCT)lParam)->hInstance, 0);
 		SendMessage(hOutputEdit, EM_LIMITTEXT, 0, 0);
 		SendMessage(hInputEdit, WM_SETFONT, (WPARAM)hFont, 0);
 		SendMessage(hOutputEdit, WM_SETFONT, (WPARAM)hFont, 0);
@@ -243,9 +273,45 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		SetFocus(hInputEdit);
 		break;
 	case WM_SIZE:
-		MoveWindow(pData->hProgress, 0, 0, LOWORD(lParam), 8, 1);
-		MoveWindow(hInputEdit, 0, 8, LOWORD(lParam) / 2, HIWORD(lParam) - 8, 1);
-		MoveWindow(hOutputEdit, LOWORD(lParam) / 2, 8, LOWORD(lParam) / 2, HIWORD(lParam) - 8, 1);
+		{
+			RECT rect;
+			GetClientRect(hWnd, &rect);
+			const int nWidth = rect.right;
+			const int nHeight = rect.bottom;
+			const int nEdit1Width = (int)(nWidth * percent);
+			MoveWindow(pData->hProgress, 0, 0, LOWORD(lParam), 8, 1);
+			MoveWindow(hInputEdit, 0, 8, nEdit1Width - SPLITTER_WIDTH / 2, nHeight - 8, TRUE);
+			MoveWindow(hOutputEdit, nEdit1Width + SPLITTER_WIDTH / 2, 8, nWidth - nEdit1Width - SPLITTER_WIDTH / 2, nHeight - 8, TRUE);
+		}
+		break;
+	case WM_LBUTTONDOWN:
+		SetCapture(hWnd);
+		oldposx = -1;
+		break;
+	case WM_MOUSEMOVE:
+		if (GetCapture() == hWnd)
+		{
+			const int posx = GET_X_LPARAM(lParam);
+			RECT rect;
+			GetClientRect(hWnd, &rect);
+			percent = (double)posx / (double)rect.right;
+			if (percent < 0.0) percent = 0.0;
+			else if (percent > 1.0) percent = 1.0;
+			const int x = (int)(rect.right * percent);
+			if (oldposx != x)
+			{
+				if (oldposx > 0) SplitterDraw(hWnd, oldposx);
+				SplitterDraw(hWnd, x);
+				oldposx = x;
+			}
+		}
+		break;
+	case WM_LBUTTONUP:
+		if (GetCapture() == hWnd)
+		{
+			ReleaseCapture();
+			SendMessage(hWnd, WM_SIZE, 0, 0);
+		}
 		break;
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
@@ -301,7 +367,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPreInst, LPSTR pCmdLine, int 
 		DLGWINDOWEXTRA,
 		hInstance,
 		LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ICON1)),
-		LoadCursor(0,IDC_ARROW),
+		LoadCursor(0,IDC_SIZEWE),
 		0,
 		0,
 		szClassName
