@@ -330,6 +330,39 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				GlobalFree(lpszCode);
 			}
 			break;
+		case ID_EXIT:
+			PostMessage(hWnd, WM_CLOSE, 0, 0);
+			break;
+		case ID_HELP:
+			MessageBox(hWnd,
+				TEXT("[コメント]\n")
+				TEXT("# コメント\n")
+				TEXT("\n")
+				TEXT("[if 文]\n")
+				TEXT("if a == 0:\n")
+				TEXT("  print(\"a = 0\")\n")
+				TEXT("elif a == 1\n")
+				TEXT("  print(\"a = 1\")\n")
+				TEXT("else:\n")
+				TEXT("  print(\"other\")\n")
+				TEXT("\n")
+				TEXT("[for 文]\n")
+				TEXT("for i in [0,1,2,3,4,5]:\n")
+				TEXT("  print(i)\n")
+				TEXT("\n")
+				TEXT("for i in range(6):\n")
+				TEXT("  print(i)\n")
+				TEXT("\n")
+				TEXT("[while 文]\n")
+				TEXT("i = 0\n")
+				TEXT("while i < 6:\n")
+				TEXT("  print(i)\n")
+				TEXT("  i += 1\n")
+				TEXT("\n")
+				TEXT("[数値を文字列に変換]\n")
+				TEXT("print(str(10) + \"個\");")
+				,TEXT("簡易文法"), 0);
+			break;
 		}
 		break;
 	case WM_CLOSE:
@@ -369,7 +402,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPreInst, LPSTR pCmdLine, int 
 		LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ICON1)),
 		LoadCursor(0,IDC_SIZEWE),
 		0,
-		0,
+		MAKEINTRESOURCE(IDR_MENU1),
 		szClassName
 	};
 	RegisterClass(&wndclass);
@@ -390,6 +423,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPreInst, LPSTR pCmdLine, int 
 	UpdateWindow(hWnd);
 	ACCEL Accel[] = {
 		{ FVIRTKEY, VK_F5, ID_BUILD },
+		{ FVIRTKEY | FCONTROL, 'H', ID_HELP },
 	};
 	const HACCEL hAccel = CreateAcceleratorTable(Accel, sizeof(Accel) / sizeof(ACCEL));
 	while (GetMessage(&msg, 0, 0, 0))
@@ -403,3 +437,32 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPreInst, LPSTR pCmdLine, int 
 	DestroyAcceleratorTable(hAccel);
 	return (int)msg.wParam;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
